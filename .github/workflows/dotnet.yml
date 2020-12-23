@@ -26,5 +26,5 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ExceptionGrabber-Artifact
-        path: ./bin/release/netcoreapp3.1/publish/*      
+        path: ./bin/release/netcoreapp3.0/publish/*      
 
