@@ -17,11 +17,14 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.301
-        files: ./bin/release/netcoreapp3.1/publish/*
     - name: Restore dependencies
       run: dotnet restore
     - name: Build 
       run: dotnet build -c release --no-restore
     - name: Release
       run: dotnet publish -c release
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ExceptionGrabber-Artifact
+        path: ./bin/release/netcoreapp3.1/publish/*      
 
