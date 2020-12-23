@@ -17,9 +17,10 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.301
+        files: ./bin/release/netcoreapp3.1/publish/*
     - name: Restore dependencies
       run: dotnet restore
     - name: Build -c release
       run: dotnet build --no-restore
-    - name: Build
+    - name: Release
       run: dotnet publish -c release
