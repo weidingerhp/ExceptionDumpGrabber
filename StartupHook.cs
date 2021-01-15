@@ -26,6 +26,11 @@ internal class StartupHook {
     }
 
     private static void CreateDump(string name, Exception ex) {
-        Process.Start("createdump", $"--full --name {DumpDir}/{name}-{((ex != null) ? ex.GetType().Name : "null")}-%p-%t({DumpNumber++}).core {Process.GetCurrentProcess().Id}")?.WaitForExit(30_000);
+        try {
+            Process.Start("createdump", $"--full --name {DumpDir}/{name}-{((ex != null) ? ex.GetType().Name : "null")}-%p-%t({DumpNumber++}).core {Process.GetCurrentProcess().Id}")?.WaitForExit(30_000);
+        } 
+        catch (Exception e) {
+            Console.Out.WriteLine($"Failed to get dump number {DumpNumber}. Reason: {e}");
+        }
     }
 }
