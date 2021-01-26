@@ -36,4 +36,7 @@ Setting the directory dumps will be written to
 ```shell
 DT_CRASH_DUMP_DIR=/home/user/mycrashdumps
 ```
-
+Changing the crashdump - executable
+```shell
+DT_DUMP_EXEC=/root/.dotnet/shared/Microsoft.NETCore.App/3.1.4/createdump
+```
