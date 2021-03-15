@@ -10,18 +10,32 @@ internal class StartupHook {
 
     private static string HostName { get; set; }
 
+    public static bool IsReadOnly { get; set; }
+    
     public static void Initialize() {
+        IsReadOnly = false;
         DumpDir = Environment.GetEnvironmentVariable("DT_CRASH_DUMP_DIR") ?? DumpDir;
         DumpExecutable = Environment.GetEnvironmentVariable("DT_DUMP_EXEC") ?? "createdump";
         
         Console.Out.WriteLine($"Exception Grabber active - wrtiting dumps to {DumpDir}");
 
         HostName = Environment.MachineName;
-        Directory.CreateDirectory($"{DumpDir}/{HostName}");
-        
-        AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
-        AppDomain.CurrentDomain.FirstChanceException +=CurrentDomainOnFirstChanceException;
+        try {
+            IsReadOnly = (new DirectoryInfo($"{DumpDir}").Attributes & FileAttributes.ReadOnly) != 0;
+
+            if (!IsReadOnly) {
+                AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
+                AppDomain.CurrentDomain.FirstChanceException +=CurrentDomainOnFirstChanceException;
+            }
+            else {
+                Console.Out.WriteLine($"Directory {DumpDir} is readonly - cannot write dumps. Aborting");
+            }
+        }
+        catch (Exception ex) {
+            Console.Out.WriteLine($"Exception initializing ExceptionGrabber for {DumpDir} - {ex.Message}");
+        }
     }
+
 
 
     private static void CurrentDomainOnFirstChanceException(object? sender, FirstChanceExceptionEventArgs e) {
@@ -36,8 +50,12 @@ internal class StartupHook {
 
     private static void CreateDump(string name, Exception ex) {
         try {
+            if (!Directory.Exists($"{DumpDir}/{HostName}")) {
+                Directory.CreateDirectory($"{DumpDir}/{HostName}");
+            }
             Process.Start(DumpExecutable, $"--full --name {DumpDir}/{HostName}/{name}-{((ex != null) ? ex.GetType().Name : "null")}-%p-%t({DumpNumber++}).core {Process.GetCurrentProcess().Id}")?.WaitForExit(30_000);
-        } 
+        }
+        
         catch (Exception e) {
             Console.Out.WriteLine($"Failed to get dump number {DumpNumber}. Reason: {e}");
         }
