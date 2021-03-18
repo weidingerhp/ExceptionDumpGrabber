@@ -3,10 +3,11 @@
 import sys, getopt, io;
 import yaml;
 
-DUMP_DEST_DIR = '/tnsconfig'
+DUMP_DEST_DIR = '/mnt/dynatracegrabber'
+DUMP_DEST_PVCLAIM = 'dynatracegrabber-pvc'
 CREATE_DUMP_TOOL = '/usr/share/dotnet/shared/Microsoft.NETCore.App/3.1.11/createdump'
 EXCEPTION_GRABBER_MOUNT = '/exceptiongrabber'
-GRABBER_VERSION = 'v1.0.2'
+GRABBER_VERSION = 'v1.0.4'
 
 def add_environments(image):
     # Add Environment if not existing yet
@@ -27,13 +28,6 @@ def add_environments(image):
     if not 'volumeMounts' in image.keys():
         image['volumeMounts'] = []
     
-    # Sanity check, if the output dir is available
-    if not [name for name in image['volumeMounts'] if name['mountPath'] == DUMP_DEST_DIR]:
-        print('The output directory {dest} is not available in the deployment descriptor. Available are:'.format(dest=DUMP_DEST_DIR))
-        for name in image['volumeMounts']:
-            print('- {name}'.format(name=name['mountPath']))
-        sys.exit(1)
-
     # check if volume-mount for
     for dest in [name for name in image['volumeMounts'] if name['mountPath'] == DUMP_DEST_DIR]:
         if 'readOnly' in dest:
@@ -43,7 +37,7 @@ def add_environments(image):
         image['volumeMounts'].insert(0, {'name': 'exceptiongrabber', 'mountPath': EXCEPTION_GRABBER_MOUNT})
 
 
-def add_volume_and_init(spec):
+def add_init_container(spec):
     # add initContainers-Section if needed
     if not 'initContainers' in spec:
         spec['initContainers'] = []
@@ -65,14 +59,27 @@ def add_volume_and_init(spec):
     if not [name for name in spec['volumes'] if name['name'] == 'exceptiongrabber']:
         spec['volumes'].insert(0, {'name': 'exceptiongrabber', 'emptyDir': {} })
 
-def update_yaml(myYaml):
+def add_pvc_as_volume(spec, image):
+    if not [name for name in image['volumeMounts'] if name['mountPath'] == DUMP_DEST_DIR]:
+        print(f'The output directory {DUMP_DEST_DIR} is not available in the deployment descriptor. Available are:')
+        for name in image['volumeMounts']:
+            print('- {name}'.format(name=name['mountPath']))
+        print(f'will add Persistant Volume claim {DUMP_DEST_PVCLAIM} as this volume')
 
-    add_volume_and_init(myYaml['spec']['template']['spec'])
+        if not [vol for vol in spec['volumes'] if vol['name'] == DUMP_DEST_PVCLAIM]:
+            spec['volumes'].insert(0, {'name': DUMP_DEST_PVCLAIM, 'persistentVolumeClaim': {'claimName': DUMP_DEST_PVCLAIM}})
+
+        image['volumeMounts'].insert(0, {'name': DUMP_DEST_PVCLAIM, 'mountPath': DUMP_DEST_DIR})
+
+def update_yaml(myYaml):
+    spec = myYaml['spec']['template']['spec']
+    add_init_container(spec)
 
     for image in myYaml['spec']['template']['spec']['containers']:
         print('updating container \"' + image['image'] + "\"")
         add_environments(image)
-        #add_volume(image)
+        add_pvc_as_volume(spec, image)
+
 
     # print(myYaml['spec']['template']['spec']['containers'][0]['env'])
     return myYaml

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.ExceptionServices;
+using System.Text;
 
 internal class StartupHook {
     private static string DumpDir = "/tmp";
@@ -50,14 +51,54 @@ internal class StartupHook {
 
     private static void CreateDump(string name, Exception ex) {
         try {
-            if (!Directory.Exists($"{DumpDir}/{HostName}")) {
-                Directory.CreateDirectory($"{DumpDir}/{HostName}");
+            var logFileName = DetermineLogFileName();
+
+            using (var logFileStream = File.OpenWrite(logFileName)) {
+                try {
+                    WriteLog(logFileStream, $"Writing Dump for {ex.GetType().FullName}");
+                    WriteLog(logFileStream, ex.ToString());
+
+                    var dumpFileName =
+                        $"{DumpDir}/{HostName}/{name}-{((ex != null) ? ex.GetType().Name : "null")}-{DumpNumber++}.core";
+
+                    WriteLog(logFileStream, $"Logfile name: {dumpFileName}");
+                    Process.Start(DumpExecutable,
+                            $"--full --name {dumpFileName} {Process.GetCurrentProcess().Id}")
+                        ?.WaitForExit(30_000);
+                    WriteLog(logFileStream, $"Finished writing dump to {dumpFileName}");
+                }
+                catch (Exception dumpException) {
+                    WriteLog(logFileStream, $"Error while writing Dump: {dumpException.ToString()}");
+                }
             }
-            Process.Start(DumpExecutable, $"--full --name {DumpDir}/{HostName}/{name}-{((ex != null) ? ex.GetType().Name : "null")}-%p-%t({DumpNumber++}).core {Process.GetCurrentProcess().Id}")?.WaitForExit(30_000);
+
         }
         
         catch (Exception e) {
             Console.Out.WriteLine($"Failed to get dump number {DumpNumber}. Reason: {e}");
         }
+    }
+
+    private static void WriteLog(Stream logStream, string log) {
+        foreach(var line in log.Split('\n'))
+        {
+            logStream.Write(Encoding.UTF8.GetBytes($"{DateTime.Now:yyyy-dd-M--HH-mm-ss} - {line}\n"));
+        }    
+    }
+    
+    private static string DetermineLogFileName() {
+        string baseLogFileName = $"{DumpDir}/{HostName}/crashget-{DateTime.Now:yyyy-dd-M--HH-mm-ss}";
+        string logFileName     = $"{baseLogFileName}.log";
+        int    n               = 0;
+
+        while (File.Exists(logFileName)) {
+            logFileName = $"{baseLogFileName}-{++n}.log";
+        }
+
+        if (!Directory.Exists($"{DumpDir}/{HostName}")) {
+            Directory.CreateDirectory($"{DumpDir}/{HostName}");
+        }
+
+        return logFileName;
     }
 }
