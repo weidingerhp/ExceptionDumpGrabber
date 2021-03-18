@@ -36,6 +36,16 @@ def add_environments(image):
     if not [name for name in image['volumeMounts'] if name['mountPath'] == EXCEPTION_GRABBER_MOUNT]:
         image['volumeMounts'].insert(0, {'name': 'exceptiongrabber', 'mountPath': EXCEPTION_GRABBER_MOUNT})
 
+    # for creating dumps we need SYS_PTRACE enabled
+    if not 'securityContext' in image.keys():
+        image['securityContext'] = {}
+    if not 'capabilities' in image['securityContext'].keys():
+        image['securityContext']['capabilities'] = {}
+    if not 'add' in image['securityContext']['capabilities'].keys():
+        image['securityContext']['capabilities']['add'] = []
+
+    if not [name for name in image['securityContext']['capabilities']['add'] if name == 'SYS_PTRACE']:
+        image['securityContext']['capabilities']['add'].insert(0, 'SYS_PTRACE')
 
 def add_init_container(spec):
     # add initContainers-Section if needed
