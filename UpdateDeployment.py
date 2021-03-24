@@ -4,7 +4,9 @@ import sys, getopt, io;
 import yaml;
 
 DUMP_DEST_DIR = '/mnt/dynatracegrabber'
-DUMP_DEST_PVCLAIM = 'dynatracegrabber-pvc'
+DUMP_DEST_VOLUME_NAME = 'azure'
+DUMP_DEST_SHARE_SECRET = 'azure-secret'
+DUMP_DEST_SHARE = 'dynatracegrabber'
 CREATE_DUMP_TOOL = '/usr/share/dotnet/shared/Microsoft.NETCore.App/3.1.11/createdump'
 EXCEPTION_GRABBER_MOUNT = '/exceptiongrabber'
 GRABBER_VERSION = 'v1.0.4'
@@ -74,12 +76,12 @@ def add_pvc_as_volume(spec, image):
         print(f'The output directory {DUMP_DEST_DIR} is not available in the deployment descriptor. Available are:')
         for name in image['volumeMounts']:
             print('- {name}'.format(name=name['mountPath']))
-        print(f'will add Persistant Volume claim {DUMP_DEST_PVCLAIM} as this volume')
+        print(f'will add Persistant Volume {DUMP_DEST_VOLUME_NAME} as this volume')
 
-        if not [vol for vol in spec['volumes'] if vol['name'] == DUMP_DEST_PVCLAIM]:
-            spec['volumes'].insert(0, {'name': DUMP_DEST_PVCLAIM, 'persistentVolumeClaim': {'claimName': DUMP_DEST_PVCLAIM}})
+        if not [vol for vol in spec['volumes'] if vol['name'] == DUMP_DEST_VOLUME_NAME]:
+            spec['volumes'].insert(0, {'name': DUMP_DEST_VOLUME_NAME, 'shareName': DUMP_DEST_SHARE, 'secretName': DUMP_DEST_SHARE_SECRET})
 
-        image['volumeMounts'].insert(0, {'name': DUMP_DEST_PVCLAIM, 'mountPath': DUMP_DEST_DIR})
+        image['volumeMounts'].insert(0, {'name': DUMP_DEST_VOLUME_NAME, 'mountPath': DUMP_DEST_DIR})
 
 def update_yaml(myYaml):
     spec = myYaml['spec']['template']['spec']
