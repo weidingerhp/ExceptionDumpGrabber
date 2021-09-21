@@ -1,11 +1,11 @@
-# Small utility to grab File-Access-Errors and unhandled Exceptions for dotnet core
+# Small utility to grab memory dumps on first-chance and unhandled exceptions
 
-this code is just a small tool that will use the createdump-utility from .net to fetch full dumps from a 
-running .net core-process if an unhandled Exception or a special IO-Exception happens
+This code is just a small tool that will use the createdump utility from .NET to fetch full dumps from a
+running .NET process if one of the configured first-chance exception or an unhandled exception happens.
 
 ### Building
 
-just use 
+Just use
 ```shell
 dotnet publish -c release
 ```
@@ -13,15 +13,16 @@ and you will find the contents in ``bin\release\netcoreapp3.0\publish\``.
 
 ### Injecting into the observed process
 
-To do so you need to use the process-hooking from dotnetcore.
+To do so you need to use the .NET start-up hooks.
 
 Please set the Environment:
 
 ```shell
 DOTNET_STARTUP_HOOKS=<directory_where_the_tool_is_deployed>/ExceptionGrabber.dll
+DT_FIRST_CHANCE_EXCEPTIONS=<ExceptionA>,<ExceptionB>
 ```
 
-after starting the process again you should notice a line like:
+After starting the process again you should notice a line like:
 
 ```shell
 ...
