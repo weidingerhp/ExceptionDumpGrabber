@@ -1,23 +1,28 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Text;
 
 internal class StartupHook {
+    private static readonly char[] Delimiters = { ',', ';', '-', '|', ' ' };
+
     private static string DumpDir = "/tmp";
     private static string DumpExecutable { get; set; }
     private static int DumpNumber = 0;
+    private static string[] FirstChanceExceptionFilter;
 
     private static string HostName { get; set; }
 
     public static bool IsReadOnly { get; set; }
-    
+
     public static void Initialize() {
         IsReadOnly = false;
         DumpDir = Environment.GetEnvironmentVariable("DT_CRASH_DUMP_DIR") ?? DumpDir;
         DumpExecutable = Environment.GetEnvironmentVariable("DT_DUMP_EXEC") ?? "createdump";
-        
+        ReadFirstChanceExceptionFilter();
+
         Console.Out.WriteLine($"Exception Grabber active - wrtiting dumps to {DumpDir}");
 
         HostName = Environment.MachineName;
@@ -37,11 +42,24 @@ internal class StartupHook {
         }
     }
 
-
+    private static void ReadFirstChanceExceptionFilter() {
+        var envVarValue = Environment.GetEnvironmentVariable("DT_FIRST_CHANCE_EXCEPTIONS") ?? string.Empty;
+        var exceptions = envVarValue.Split(Delimiters, StringSplitOptions.RemoveEmptyEntries);
+        if (exceptions == null) {
+            FirstChanceExceptionFilter = new string[0];
+            Console.Out.WriteLine("Warning: no exception filter patterns");
+            return;
+        }
+        FirstChanceExceptionFilter = exceptions.Select(e => e.Trim()).ToArray();
+        Console.Out.WriteLine($"Exception patterns: {string.Join(", ", FirstChanceExceptionFilter)}");
+    }
 
     private static void CurrentDomainOnFirstChanceException(object? sender, FirstChanceExceptionEventArgs e) {
-        if (e.Exception is System.IO.IOException && (e.Exception?.Message?.StartsWith("The process cannot access the file") ?? false)) {
-            CreateDump("firstchance", e.Exception);
+        foreach (var pattern in FirstChanceExceptionFilter) {
+            if (e.Exception.GetType().FullName.Contains(pattern, StringComparison.OrdinalIgnoreCase)) {
+                CreateDump("firstchance", e.Exception);
+                return;
+            }
         }
     }
 
@@ -73,7 +91,7 @@ internal class StartupHook {
             }
 
         }
-        
+
         catch (Exception e) {
             Console.Out.WriteLine($"Failed to get dump number {DumpNumber}. Reason: {e}");
         }
@@ -83,9 +101,9 @@ internal class StartupHook {
         foreach(var line in log.Split('\n'))
         {
             logStream.Write(Encoding.UTF8.GetBytes($"{DateTime.Now:yyyy-dd-M--HH-mm-ss} - {line}\n"));
-        }    
+        }
     }
-    
+
     private static string DetermineLogFileName() {
         string baseLogFileName = $"{DumpDir}/{HostName}/crashget-{DateTime.Now:yyyy-dd-M--HH-mm-ss}";
         string logFileName     = $"{baseLogFileName}.log";
